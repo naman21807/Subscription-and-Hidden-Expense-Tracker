@@ -33,14 +33,38 @@ class ViewSubscriptionsFrame(tk.Frame):
         )
         self.card.pack(fill="both", expand=True)
 
+        self.list_frame = self._build_scroll_area()
+
+    def _build_scroll_area(self):
+        self.canvas = tk.Canvas(self.card, bg="white", highlightthickness=0, bd=0)
+        scrollbar = tk.Scrollbar(self.card, orient="vertical", command=self.canvas.yview)
+        list_frame = tk.Frame(self.canvas, bg="white")
+
+        self.canvas.create_window((0, 0), window=list_frame, anchor="nw", tags="content")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        list_frame.bind(
+            "<Configure>",
+            lambda _event: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
+        )
+        self.canvas.bind(
+            "<Configure>",
+            lambda event: self.canvas.itemconfigure("content", width=event.width),
+        )
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        return list_frame
+
     def refresh(self):
-        for child in self.card.winfo_children():
+        for child in self.list_frame.winfo_children():
             child.destroy()
 
         subscriptions = self.controller.tracker.get_subscriptions(self.controller.current_user_id)
         if not subscriptions:
             tk.Label(
-                self.card,
+                self.list_frame,
                 text="No subscriptions added yet.",
                 font=("Segoe UI", 13),
                 fg=self.controller.muted_text,
@@ -50,7 +74,7 @@ class ViewSubscriptionsFrame(tk.Frame):
 
         for subscription in subscriptions:
             item = tk.Frame(
-                self.card,
+                self.list_frame,
                 bg="#FFF9FB",
                 highlightbackground=self.controller.border_color,
                 highlightthickness=1,
@@ -78,3 +102,9 @@ class ViewSubscriptionsFrame(tk.Frame):
                 bg="#FFF9FB",
                 justify="left",
             ).pack(anchor="w", padx=16, pady=(0, 14))
+
+        self.canvas.yview_moveto(0)
+
+    def _on_mousewheel(self, event):
+        if self.winfo_ismapped():
+            self.canvas.yview_scroll(int(-event.delta / 120), "units")
