@@ -1,63 +1,101 @@
 """Add subscription screen."""
 
-import tkinter as tk
+import customtkinter as ctk
 
 
-class AddSubscriptionFrame(tk.Frame):
+class AddSubscriptionFrame(ctk.CTkFrame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg="#f4f6f8")
+        super().__init__(parent, fg_color="transparent")
         self.controller = controller
 
-        form = tk.Frame(self, bg="white", padx=25, pady=25)
-        form.place(relx=0.5, rely=0.5, anchor="center")
-
-        tk.Label(
-            form,
+        ctk.CTkLabel(
+            self,
             text="Add Subscription",
-            font=("Arial", 16, "bold"),
-            bg="white",
-        ).grid(row=0, column=0, columnspan=2, pady=(0, 20))
+            font=("Segoe UI", 30, "bold"),
+            text_color=self.controller.text_color,
+        ).pack(anchor="w", pady=(10, 4))
 
-        tk.Label(form, text="Name", bg="white").grid(row=1, column=0, sticky="w", pady=5)
-        self.name_entry = tk.Entry(form, width=30)
-        self.name_entry.grid(row=1, column=1, pady=5)
+        ctk.CTkLabel(
+            self,
+            text="Use YYYY-MM-DD for renewal and last used dates.",
+            font=("Segoe UI", 14),
+            text_color=self.controller.muted_text,
+        ).pack(anchor="w", pady=(0, 24))
 
-        tk.Label(form, text="Monthly Cost", bg="white").grid(row=2, column=0, sticky="w", pady=5)
-        self.cost_entry = tk.Entry(form, width=30)
-        self.cost_entry.grid(row=2, column=1, pady=5)
+        form = ctk.CTkFrame(
+            self,
+            fg_color=self.controller.card_bg,
+            corner_radius=24,
+            border_width=2,
+            border_color=self.controller.border_color,
+        )
+        form.pack(fill="x", ipadx=10, ipady=10)
 
-        tk.Label(form, text="Renewal Date", bg="white").grid(row=3, column=0, sticky="w", pady=5)
-        self.renewal_entry = tk.Entry(form, width=30)
-        self.renewal_entry.grid(row=3, column=1, pady=5)
+        self.name_entry = self._create_labeled_entry(form, "Name")
+        self.cost_entry = self._create_labeled_entry(form, "Monthly Cost")
+        self.renewal_entry = self._create_labeled_entry(form, "Renewal Date")
+        self.last_used_entry = self._create_labeled_entry(form, "Last Used")
 
-        tk.Label(form, text="Last Used", bg="white").grid(row=4, column=0, sticky="w", pady=5)
-        self.last_used_entry = tk.Entry(form, width=30)
-        self.last_used_entry.grid(row=4, column=1, pady=5)
-
-        tk.Label(
+        self.message_label = ctk.CTkLabel(
             form,
-            text="Use YYYY-MM-DD format for dates.",
-            bg="white",
-            fg="#555555",
-        ).grid(row=5, column=0, columnspan=2, pady=(5, 10))
+            text="",
+            font=("Segoe UI", 13),
+            text_color=self.controller.dark_pink,
+        )
+        self.message_label.pack(anchor="w", padx=30, pady=(8, 10))
 
-        self.message_label = tk.Label(form, text="", bg="white", fg="red")
-        self.message_label.grid(row=6, column=0, columnspan=2, pady=(0, 10))
+        button_row = ctk.CTkFrame(form, fg_color="transparent")
+        button_row.pack(fill="x", padx=30, pady=(0, 20))
+        button_row.grid_columnconfigure((0, 1), weight=1)
 
-        button_row = tk.Frame(form, bg="white")
-        button_row.grid(row=7, column=0, columnspan=2)
-
-        tk.Button(button_row, text="Save", width=12, command=self.save_subscription).grid(row=0, column=0, padx=5)
-        tk.Button(
+        ctk.CTkButton(
             button_row,
-            text="Back",
-            width=12,
-            command=lambda: controller.show_frame("DashboardFrame"),
-        ).grid(row=0, column=1, padx=5)
+            text="Save",
+            fg_color=self.controller.dark_pink,
+            hover_color="#A91471",
+            height=42,
+            corner_radius=14,
+            font=("Segoe UI", 14, "bold"),
+            command=self.save_subscription,
+        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+
+        ctk.CTkButton(
+            button_row,
+            text="Back to Dashboard",
+            fg_color="white",
+            text_color=self.controller.dark_pink,
+            border_width=2,
+            border_color=self.controller.dark_pink,
+            hover_color="#FFF0F5",
+            height=42,
+            corner_radius=14,
+            font=("Segoe UI", 14, "bold"),
+            command=lambda: self.controller.show_frame("DashboardFrame"),
+        ).grid(row=0, column=1, padx=(8, 0), sticky="ew")
+
+    def _create_labeled_entry(self, parent, label):
+        ctk.CTkLabel(
+            parent,
+            text=label,
+            font=("Segoe UI", 14, "bold"),
+            text_color=self.controller.text_color,
+        ).pack(anchor="w", padx=30, pady=(0, 6))
+
+        entry = ctk.CTkEntry(
+            parent,
+            width=340,
+            height=42,
+            corner_radius=12,
+            border_color="#F1B6C8",
+            fg_color="#FFF9FB",
+            text_color=self.controller.text_color,
+        )
+        entry.pack(fill="x", padx=30, pady=(0, 16))
+        return entry
 
     def refresh(self):
         self.clear_form()
-        self.message_label.config(text="")
+        self.message_label.configure(text="")
 
     def clear_form(self):
         for entry in (
@@ -66,7 +104,7 @@ class AddSubscriptionFrame(tk.Frame):
             self.renewal_entry,
             self.last_used_entry,
         ):
-            entry.delete(0, tk.END)
+            entry.delete(0, "end")
 
     def save_subscription(self):
         name = self.name_entry.get()
@@ -81,7 +119,7 @@ class AddSubscriptionFrame(tk.Frame):
             last_used,
         )
         if not is_valid:
-            self.message_label.config(text=message, fg="red")
+            self.message_label.configure(text=message, text_color="#C0392B")
             return
 
         self.controller.tracker.add_subscription(
@@ -91,5 +129,8 @@ class AddSubscriptionFrame(tk.Frame):
             renewal_date=renewal_date,
             last_used=last_used,
         )
-        self.message_label.config(text="Subscription added successfully.", fg="green")
+        self.message_label.configure(
+            text="Subscription added successfully.",
+            text_color="#2E8B57",
+        )
         self.clear_form()

@@ -1,43 +1,106 @@
 """Login and signup screen."""
 
-import tkinter as tk
+import customtkinter as ctk
 
 
-class LoginFrame(tk.Frame):
+class LoginFrame(ctk.CTkFrame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg="#f4f6f8")
+        super().__init__(parent, fg_color=controller.bg_color)
         self.controller = controller
 
-        wrapper = tk.Frame(self, bg="white", padx=30, pady=30)
-        wrapper.place(relx=0.5, rely=0.5, anchor="center")
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-        tk.Label(
-            wrapper,
-            text="Subscription Tracker",
-            font=("Arial", 18, "bold"),
-            bg="white",
-        ).grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        card = ctk.CTkFrame(
+            self,
+            width=420,
+            corner_radius=24,
+            fg_color=controller.card_bg,
+            border_width=2,
+            border_color=controller.border_color,
+        )
+        card.grid(row=0, column=0, padx=30, pady=30)
 
-        tk.Label(wrapper, text="Username", bg="white").grid(row=1, column=0, sticky="w", pady=5)
-        self.username_entry = tk.Entry(wrapper, width=30)
-        self.username_entry.grid(row=1, column=1, pady=5)
+        ctk.CTkLabel(
+            card,
+            text=controller.app_name,
+            font=("Segoe UI", 30, "bold"),
+            text_color=controller.dark_pink,
+        ).pack(anchor="w", padx=30, pady=(30, 8))
 
-        tk.Label(wrapper, text="Password", bg="white").grid(row=2, column=0, sticky="w", pady=5)
-        self.password_entry = tk.Entry(wrapper, width=30, show="*")
-        self.password_entry.grid(row=2, column=1, pady=5)
+        ctk.CTkLabel(
+            card,
+            text="Track subscriptions and spot waste before renewals hit.",
+            font=("Segoe UI", 14),
+            text_color=controller.muted_text,
+            wraplength=320,
+            justify="left",
+        ).pack(anchor="w", padx=30, pady=(0, 24))
 
-        self.message_label = tk.Label(wrapper, text="", fg="red", bg="white")
-        self.message_label.grid(row=3, column=0, columnspan=2, pady=(10, 10))
+        self.username_entry = self._create_labeled_entry(card, "Username")
+        self.password_entry = self._create_labeled_entry(card, "Password", show="*")
 
-        button_frame = tk.Frame(wrapper, bg="white")
-        button_frame.grid(row=4, column=0, columnspan=2, pady=10)
+        self.message_label = ctk.CTkLabel(
+            card,
+            text="",
+            font=("Segoe UI", 13),
+            text_color=controller.dark_pink,
+        )
+        self.message_label.pack(anchor="w", padx=30, pady=(16, 6))
 
-        tk.Button(button_frame, text="Login", width=12, command=self.login).grid(row=0, column=0, padx=5)
-        tk.Button(button_frame, text="Sign Up", width=12, command=self.signup).grid(row=0, column=1, padx=5)
+        button_row = ctk.CTkFrame(card, fg_color="transparent")
+        button_row.pack(fill="x", padx=30, pady=(8, 30))
+        button_row.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkButton(
+            button_row,
+            text="Login",
+            fg_color=controller.dark_pink,
+            hover_color="#A91471",
+            height=42,
+            corner_radius=14,
+            font=("Segoe UI", 14, "bold"),
+            command=self.login,
+        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+
+        ctk.CTkButton(
+            button_row,
+            text="Sign Up",
+            fg_color="white",
+            text_color=controller.dark_pink,
+            border_width=2,
+            border_color=controller.dark_pink,
+            hover_color="#FFF0F5",
+            height=42,
+            corner_radius=14,
+            font=("Segoe UI", 14, "bold"),
+            command=self.signup,
+        ).grid(row=0, column=1, padx=(8, 0), sticky="ew")
+
+    def _create_labeled_entry(self, parent, label, show=None):
+        ctk.CTkLabel(
+            parent,
+            text=label,
+            font=("Segoe UI", 14, "bold"),
+            text_color=self.controller.text_color,
+        ).pack(anchor="w", padx=30, pady=(0, 6))
+
+        entry = ctk.CTkEntry(
+            parent,
+            width=340,
+            height=42,
+            corner_radius=12,
+            border_color="#F1B6C8",
+            fg_color="#FFF9FB",
+            text_color=self.controller.text_color,
+            show=show,
+        )
+        entry.pack(fill="x", padx=30, pady=(0, 16))
+        return entry
 
     def refresh(self):
-        self.password_entry.delete(0, tk.END)
-        self.message_label.config(text="")
+        self.password_entry.delete(0, "end")
+        self.message_label.configure(text="")
 
     def login(self):
         username = self.username_entry.get()
@@ -45,10 +108,10 @@ class LoginFrame(tk.Frame):
         success, result = self.controller.auth_manager.login(username, password)
 
         if success:
-            self.message_label.config(text="Login successful.", fg="green")
+            self.message_label.configure(text="Login successful.", text_color="#2E8B57")
             self.controller.login_user(result)
         else:
-            self.message_label.config(text=result, fg="red")
+            self.message_label.configure(text=result, text_color="#C0392B")
 
     def signup(self):
         username = self.username_entry.get()
@@ -56,10 +119,10 @@ class LoginFrame(tk.Frame):
         success, result = self.controller.auth_manager.signup(username, password)
 
         if success:
-            self.message_label.config(
+            self.message_label.configure(
                 text="Signup successful. Please log in.",
-                fg="green",
+                text_color="#2E8B57",
             )
-            self.password_entry.delete(0, tk.END)
+            self.password_entry.delete(0, "end")
         else:
-            self.message_label.config(text=result, fg="red")
+            self.message_label.configure(text=result, text_color="#C0392B")
