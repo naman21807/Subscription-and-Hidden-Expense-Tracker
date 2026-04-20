@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import calendar
 
 
 class Subscription:
@@ -27,13 +28,19 @@ class Subscription:
         return datetime.strptime(self.last_used, self.DATE_FORMAT).date()
 
     def upcoming_renewal_date(self):
-        """Treat renewal_date as a recurring yearly date and return the next one."""
+        """Treat renewal_date as a recurring monthly date and return the next one."""
         base_date = self.parsed_renewal_date()
         today = date.today()
-        next_date = self._safe_replace_year(base_date, today.year)
+        next_date = self._safe_replace_month(base_date, today.year, today.month)
 
         if next_date < today:
-            next_date = self._safe_replace_year(base_date, today.year + 1)
+            if today.month == 12:
+                next_year = today.year + 1
+                next_month = 1
+            else:
+                next_year = today.year
+                next_month = today.month + 1
+            next_date = self._safe_replace_month(base_date, next_year, next_month)
 
         return next_date
 
@@ -63,9 +70,8 @@ class Subscription:
         )
 
     @staticmethod
-    def _safe_replace_year(date_value, year):
-        """Handle leap-day renewals in non-leap years."""
-        try:
-            return date_value.replace(year=year)
-        except ValueError:
-            return date_value.replace(year=year, day=28)
+    def _safe_replace_month(date_value, year, month):
+        """Handle renewal days that do not exist in shorter months."""
+        last_day = calendar.monthrange(year, month)[1]
+        day = min(date_value.day, last_day)
+        return date(year, month, day)

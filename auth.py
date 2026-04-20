@@ -1,5 +1,6 @@
 """Authentication logic for signup and login."""
 
+import hmac
 import hashlib
 import os
 
@@ -10,26 +11,48 @@ class AuthManager:
     def __init__(self, users_collection):
         self.users_collection = users_collection
 
-    def _hash_password(self, password, salt=None):
-        if salt is None:
-            salt = os.urandom(16)
+    def generate_salt(self):
+        return os.urandom(16).hex()
 
-        hashed_password = hashlib.pbkdf2_hmac(
+    def hash_password(self, password, salt):
+        password_hash = hashlib.pbkdf2_hmac(
             "sha256",
             password.encode("utf-8"),
-            salt,
+            bytes.fromhex(salt),
             100000,
         )
-        return f"{salt.hex()}${hashed_password.hex()}"
+        return password_hash.hex()
 
-    def _verify_password(self, password, stored_value):
+    def verify_password(self, password, salt, password_hash):
+        test_hash = self.hash_password(password, salt)
+        return hmac.compare_digest(test_hash, password_hash)
+
+    def verify_legacy_password(self, password, salt, password_hash):
+        legacy_hash = hashlib.sha256((password + salt).encode("utf-8")).hexdigest()
+        return hmac.compare_digest(legacy_hash, password_hash)
+
+    def verify_combined_password_hash(self, password, stored_value):
         try:
-            salt_hex, password_hash = stored_value.split("$", 1)
+            salt, password_hash = stored_value.split("$", 1)
         except ValueError:
             return False
+        return self.verify_password(password, salt, password_hash)
 
-        test_hash = self._hash_password(password, bytes.fromhex(salt_hex))
-        return test_hash.split("$", 1)[1] == password_hash
+    def upgrade_password_storage(self, user_id, password):
+        salt = self.generate_salt()
+        password_hash = self.hash_password(password, salt)
+        self.users_collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "salt": salt,
+                    "password_hash": password_hash,
+                },
+                "$unset": {
+                    "password": "",
+                },
+            },
+        )
 
     def signup(self, username, password):
         username = username.strip()
@@ -41,11 +64,13 @@ class AuthManager:
         if existing_user:
             return False, "Username already exists."
 
-        password_hash = self._hash_password(password)
+        salt = self.generate_salt()
+        password_hash = self.hash_password(password, salt)
         try:
             result = self.users_collection.insert_one(
                 {
                     "username": username,
+                    "salt": salt,
                     "password_hash": password_hash,
                 }
             )
@@ -64,7 +89,19 @@ class AuthManager:
         if user is None:
             return False, "Invalid username or password."
 
-        if not self._verify_password(password, user["password_hash"]):
-            return False, "Invalid username or password."
+        salt = user.get("salt")
+        password_hash = user.get("password_hash")
 
-        return True, str(user["_id"])
+        if salt and password_hash and self.verify_password(password, salt, password_hash):
+            return True, str(user["_id"])
+
+        legacy_password_hash = user.get("password")
+        if salt and legacy_password_hash and self.verify_legacy_password(password, salt, legacy_password_hash):
+            self.upgrade_password_storage(user["_id"], password)
+            return True, str(user["_id"])
+
+        if password_hash and "$" in password_hash and self.verify_combined_password_hash(password, password_hash):
+            self.upgrade_password_storage(user["_id"], password)
+            return True, str(user["_id"])
+
+        return False, "Invalid username or password."
