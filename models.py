@@ -1,71 +1,71 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime
+
 
 class Subscription:
-    def __init__(self, name, cost, bill_cycle, start_date, category, last_date=None):
+    """Simple model for a user's subscription."""
+
+    DATE_FORMAT = "%Y-%m-%d"
+
+    def __init__(self, name, cost, renewal_date, last_used):
         self.name = name
-        self.cost = cost
-        self.bill_cycle = bill_cycle
-        self.last_date = last_date
-        self.start_date = start_date
-        self.category = category
+        self.cost = float(cost)
+        self.renewal_date = renewal_date
+        self.last_used = last_used
 
     def monthly_cost(self):
-        # convert yearly to monthly
-        if self.bill_cycle == "yearly":
-            return self.cost / 12
+        """Return the stored monthly subscription cost."""
         return self.cost
 
     def yearly_cost(self):
-        # convert monthly to yearly
-        if self.bill_cycle == "monthly":
-            return self.cost * 12
-        return self.cost
+        """Return the yearly cost based on the monthly amount."""
+        return self.cost * 12
 
-    def is_unused(self, days_thresh=30):
-        # check if subscription is unused
-        if not self.last_date:
-            return True
+    def parsed_renewal_date(self):
+        return datetime.strptime(self.renewal_date, self.DATE_FORMAT).date()
 
-        last_used_date = datetime.strptime(self.last_date, "%Y-%m-%d")
-        today = datetime.today()
-        diff = (today - last_used_date).days  # we are checking the diff here
+    def parsed_last_used(self):
+        return datetime.strptime(self.last_used, self.DATE_FORMAT).date()
 
-        return diff > days_thresh  # if this returns true it means that the subscription is unused
+    def upcoming_renewal_date(self):
+        """Treat renewal_date as a recurring yearly date and return the next one."""
+        base_date = self.parsed_renewal_date()
+        today = date.today()
+        next_date = self._safe_replace_year(base_date, today.year)
 
-    def next_billing_date(self):
-        # calculate next billing date based on billing cycle
-        start = datetime.strptime(self.start_date, "%Y-%m-%d")
-        today = datetime.today()
+        if next_date < today:
+            next_date = self._safe_replace_year(base_date, today.year + 1)
 
-        # keep adding cycle time until we reach future date
-        if self.bill_cycle == "monthly":
-            while start < today:
-                start += timedelta(days=30)
-        elif self.bill_cycle == "yearly":
-            while start < today:
-                start += timedelta(days=365)
+        return next_date
 
-        return start  # returning next billing date
+    def is_unused(self, days_threshold=30):
+        """Return True when the subscription was not used recently."""
+        today = date.today()
+        days_since_used = (today - self.parsed_last_used()).days
+        return days_since_used > days_threshold
 
-    def to_dict(self):
-        # convert the object into a dict to save into the file later
+    def to_dict(self, user_id):
+        """Convert the object into a MongoDB-friendly dictionary."""
         return {
+            "user_id": user_id,
             "name": self.name,
             "cost": self.cost,
-            "bill_cycle": self.bill_cycle,
-            "start_date": self.start_date,
-            "category": self.category,
-            "last_date": self.last_date
+            "renewal_date": self.renewal_date,
+            "last_used": self.last_used,
         }
 
     @classmethod
     def from_dict(cls, data):
-        # Create object from dictionary
         return cls(
-            data["name"],
-            data["cost"],
-            data["bill_cycle"],
-            data["start_date"],
-            data["category"],
-            data.get("last_date")
+            name=data["name"],
+            cost=data["cost"],
+            renewal_date=data["renewal_date"],
+            last_used=data["last_used"],
         )
+
+    @staticmethod
+    def _safe_replace_year(date_value, year):
+        """Handle leap-day renewals in non-leap years."""
+        try:
+            return date_value.replace(year=year)
+        except ValueError:
+            return date_value.replace(year=year, day=28)
